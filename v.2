@@ -1,0 +1,116 @@
+# Druva inSync Control Script
+# Provides options to manage the Druva inSync Client service
+
+# Path for log file
+$logPath = "C:\Logs\DruvaActions.log"
+
+# Function: Write log entry with timestamp
+function Write-Log {
+    param([string]$message)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Add-Content -Path $logPath -Value "$timestamp - $message"
+}
+
+# Function: Start Druva service
+function Start-DruvaService {
+    param([System.ServiceProcess.ServiceController]$service)
+    if ($service.Status -ne "Running") {
+        Start-Service -Name $service.Name
+        Write-Output "Druva service started successfully."
+        Write-Log "Started Druva service"
+    } else {
+        Write-Output "Druva is already running."
+    }
+}
+
+# Function: Stop Druva service
+function Stop-DruvaService {
+    param([System.ServiceProcess.ServiceController]$service)
+    if ($service.Status -ne "Stopped") {
+        Stop-Service -Name $service.Name -Force
+        Write-Output "Druva service stopped successfully."
+        Write-Log "Stopped Druva service"
+    } else {
+        Write-Output "Druva is already stopped."
+    }
+}
+
+# Function: Restart Druva service
+function Restart-DruvaService {
+    param([System.ServiceProcess.ServiceController]$service)
+    Restart-Service -Name $service.Name -Force
+    Write-Output "Druva service restarted successfully."
+    Write-Log "Restarted Druva service"
+}
+
+# Function: Restart Druva service with delay
+function Restart-DruvaServiceDelayed {
+    param(
+        [System.ServiceProcess.ServiceController]$service,
+        [int]$delaySeconds
+    )
+    Stop-Service -Name $service.Name -Force
+    Write-Output "Service stopped. Waiting $delaySeconds seconds before restart..."
+    Start-Sleep -Seconds $delaySeconds
+    Start-Service -Name $service.Name
+    Write-Output "Service restarted after $delaySeconds seconds delay."
+    Write-Log "Restarted Druva service with $delaySeconds second delay"
+}
+
+# Function: Get detailed status of Druva service
+function Get-DruvaStatusDetailed {
+    param([System.ServiceProcess.ServiceController]$service)
+    $service | Format-List *
+    $process = Get-Process -Name "inSyncCPHService" -ErrorAction SilentlyContinue
+    if ($process) {
+        Write-Output "Process ID: $($process.Id)"
+        Write-Output "Memory Usage: $([math]::Round($process.WorkingSet64/1MB,2)) MB"
+    }
+    Write-Log "Checked detailed status of Druva service"
+}
+
+# Loop menu
+do {
+    Clear-Host
+    Write-Output "===== Druva inSync Service Control ====="
+    Write-Output "1. Start Druva"
+    Write-Output "2. Stop Druva"
+    Write-Output "3. Restart Druva"
+    Write-Output "4. Restart Druva with delay"
+    Write-Output "5. Status (detailed)"
+    Write-Output "6. View Logs"
+    Write-Output "7. Exit"
+    $choice = Read-Host "Select an option (1-7)"
+
+    # Find Druva service each time
+    $service = Get-Service | Where-Object { $_.DisplayName -like "*Druva*" }
+
+    if ($null -eq $service -and $choice -ne "7") {
+        Write-Output "No Druva service found on this system."
+        pause
+        continue
+    }
+
+    switch ($choice) {
+        "1" { Start-DruvaService -service $service }
+        "2" { Stop-DruvaService -service $service }
+        "3" { Restart-DruvaService -service $service }
+        "4" {
+            $delay = Read-Host "Enter delay in seconds before restart"
+            Restart-DruvaServiceDelayed -service $service -delaySeconds $delay
+        }
+        "5" { Get-DruvaStatusDetailed -service $service }
+        "6" {
+            if (Test-Path $logPath) {
+                Write-Output "`n--- Last 20 Log Entries ---"
+                Get-Content $logPath -Tail 20
+                Write-Output "-----------------------------`n"
+            } else {
+                Write-Output "No log file found yet."
+            }
+        }
+        "7" { Write-Output "Exiting..."; break }
+        default { Write-Output "Invalid choice, please select 1–7." }
+    }
+    pause
+} while ($choice -ne "7")
