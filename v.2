@@ -1,14 +1,22 @@
 # Druva inSync Control Script
 # Provides options to manage the Druva inSync Client service
 
-# Path for log file
-$logPath = "C:\Logs\DruvaActions.log"
+# Ensure log directory exists
+$logDir = "C:\Logs"
+if (-not (Test-Path $logDir)) {
+    New-Item -ItemType Directory -Path $logDir | Out-Null
+}
+$logPath = "$logDir\DruvaActions.log"
 
-# Function: Write log entry with timestamp
+# Function: Write log entry with timestamp (fail-safe)
 function Write-Log {
     param([string]$message)
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Add-Content -Path $logPath -Value "$timestamp - $message"
+    try {
+        Add-Content -Path $logPath -Value "$timestamp - $message"
+    } catch {
+        Write-Warning "Could not write to log file."
+    }
 }
 
 # Function: Start Druva service
@@ -69,7 +77,7 @@ function Get-DruvaStatusDetailed {
     Write-Log "Checked detailed status of Druva service"
 }
 
-# Loop menu
+# Main menu loop
 do {
     Clear-Host
     Write-Output "===== Druva inSync Service Control ====="
@@ -97,7 +105,11 @@ do {
         "3" { Restart-DruvaService -service $service }
         "4" {
             $delay = Read-Host "Enter delay in seconds before restart"
-            Restart-DruvaServiceDelayed -service $service -delaySeconds $delay
+            if ($delay -match '^\d+$') {
+                Restart-DruvaServiceDelayed -service $service -delaySeconds $delay
+            } else {
+                Write-Output "Invalid input. Please enter a number."
+            }
         }
         "5" { Get-DruvaStatusDetailed -service $service }
         "6" {
@@ -112,5 +124,6 @@ do {
         "7" { Write-Output "Exiting..."; break }
         default { Write-Output "Invalid choice, please select 1–7." }
     }
-    pause
+
+    Pause
 } while ($choice -ne "7")
