@@ -1,0 +1,106 @@
+# ==============================================
+# Druva Management Console - Service Only Version
+# ==============================================
+
+# Configuration
+$serviceName = "inSyncCPHService"
+
+# ==============================================
+# Functions
+# ==============================================
+
+function Check-DruvaStatus {
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($null -ne $service) {
+        Write-Output "Druva service '$($service.DisplayName)' is $($service.Status)."
+    } else {
+        Write-Output "Druva service not found on this system."
+    }
+}
+
+function Stop-Druva {
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($null -ne $service -and $service.Status -eq "Running") {
+        $confirm = Read-Host "Stop Druva service? (Y/N)"
+        if ($confirm.ToUpper() -eq "Y") {
+            Write-Output "Stopping Druva service..."
+            Stop-Service -Name $serviceName -Force
+            Write-Output "Druva service stopped."
+        } else {
+            Write-Output "Skipped stopping Druva."
+        }
+    } else {
+        Write-Output "Druva service is already stopped or not found."
+    }
+}
+
+function Start-Druva {
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($null -ne $service -and $service.Status -ne "Running") {
+        $confirm = Read-Host "Start Druva service? (Y/N)"
+        if ($confirm.ToUpper() -eq "Y") {
+            Write-Output "Starting Druva service..."
+            Start-Service -Name $serviceName
+            Write-Output "Druva service started."
+        } else {
+            Write-Output "Skipped starting Druva."
+        }
+    } else {
+        Write-Output "Druva service is already running or not found."
+    }
+}
+
+function Restart-Druva {
+    $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+    if ($null -ne $service) {
+        $confirm = Read-Host "Restart Druva service? (Y/N)"
+        if ($confirm.ToUpper() -eq "Y") {
+            Write-Output "Restarting Druva service..."
+            Restart-Service -Name $serviceName -Force
+            Write-Output "Druva service restarted."
+        } else {
+            Write-Output "Skipped restarting Druva."
+        }
+    } else {
+        Write-Output "Druva service not found."
+    }
+}
+
+# ==============================================
+# Main Loop
+# ==============================================
+
+while ($true) {
+    Write-Output ""
+    Write-Output "===== Druva Management Console ====="
+    Check-DruvaStatus
+    Write-Output "-----------------------------------"
+    Write-Output "Available actions:"
+    Write-Output "start = Start Druva"
+    Write-Output "stop = Stop Druva"
+    Write-Output "restart = Restart Druva"
+    Write-Output "status = Check Druva status"
+    Write-Output "exit = Exit console"
+    Write-Output "-----------------------------------"
+
+    $inputAction = Read-Host "Enter an action (or multiple actions separated by commas)"
+
+    if ($inputAction.ToLower() -eq "exit") {
+        Write-Output "Exiting Druva Management Console..."
+        break
+    }
+
+    $actions = $inputAction.ToLower().Split(",") | ForEach-Object { $_.Trim() }
+
+    foreach ($action in $actions) {
+        switch ($action) {
+            "start" { Start-Druva }
+            "stop" { Stop-Druva }
+            "restart" { Restart-Druva }
+            "status" { Check-DruvaStatus }
+            default { Write-Output "Invalid action: $action" }
+        }
+    }
+
+    Write-Output "==================================="
+}
